@@ -1,9 +1,10 @@
 [project]
 name = "mysql-mcp-xu"
-version = "0.0.6"
-description = "MySql Mcp Server 使用FastMCP支持Streamable HTTP, STDIO, SSE"
+version = "0.0.7"
+description = "使用FastMCP构建MySql Mcp Server，支持Streamable HTTP, STDIO, SSE"
 readme = "README.md"
-
+keywords = ["mysql", "mcp", "mcp-server"]
+urls = {repository = "https://github.com/XMQSVIP/mysql-mcp-xu" }
 authors = [
     { name = "xmq", email = "xmqsvip@qq.com" }
 ]
@@ -20,6 +21,3 @@ mysql-mcp-xu = "mysql_mcp_xu:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-keywords = ["mysql", "mcp", "mcp-server"]
-urls = {repository = "https://github.com/XMQSVIP/mysql-mcp-xu" }

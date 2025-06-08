@@ -46,7 +46,7 @@ async def execute_sql(sqls: str) -> str:
                 continue
             try:
                 cursor.execute(sql)
-                # 检查语句是否返回了结果集 (SELECT, SHOW, EXPLAIN, etc.)
+
                 if cursor.description:
                     columns = [desc[0] for desc in cursor.description]
                     rows = cursor.fetchall()
@@ -59,8 +59,6 @@ async def execute_sql(sqls: str) -> str:
 
                     # 将列名和数据合并为CSV格式
                     results.append("\n".join([",".join(columns)] + formatted_rows))
-
-                # 如果语句没有返回结果集 (INSERT, UPDATE, DELETE, etc.)
                 else:
                     conn.commit()
                     results.append(f"执行成功。影响行数: {cursor.rowcount}")

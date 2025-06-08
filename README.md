@@ -3,7 +3,7 @@
 # MySQL MCP Xu
 
 ## 项目简介
-MySQL MCP Xu 是一个基于 FastMCP 的 MySQL 中间件项目，提供了一个安全、高效的接口来执行 SQL 操作。该项目支持多种权限控制（读、写、管理员），并通过工具函数实现了表结构查询、索引信息获取、健康状态监控等功能。
+MySQL MCP Xu 是一个基于 FastMCP 的 MySQL MCP Server项目，提供了一个安全、高效的接口来执行 SQL 操作。该项目支持多种权限控制（读、写、管理员），并通过工具函数实现了表结构查询、索引信息获取、健康状态监控等功能。
 
 ## 目录结构
 ```
@@ -19,7 +19,21 @@ MySQL MCP Xu 是一个基于 FastMCP 的 MySQL 中间件项目，提供了一个
 
 ## 快速开始
 1. 安装：`pip install mysql-mcp-xu`
-2. 使用 MCP 客户端连接服务并执行 SQL 操作。
+2. 执行命令的目录创建一个 `.env` 文件，内容如下：
+```bash
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=your_username
+MYSQL_PASSWORD=your_password
+MYSQL_DATABASE=your_database
+# 可选值: r, w, a
+MYSQL_ROLE=r
+```
+3. 启动命令：
+   - STDIO：uv run -m mysql_mcp_xu.mcp_server 
+   - Streamable HTTP： uv run -m mysql_mcp_xu.mcp_server sh
+   - SSE: uv run -m mysql_mcp_xu.mcp_server sse
+4. 使用 MCP 客户端连接服务并执行 SQL 操作。
 
 ## 功能特性
 - **SQL 执行**：支持执行多条 SQL 语句，并返回结果。
@@ -70,55 +84,85 @@ MySQL MCP Xu 是一个基于 FastMCP 的 MySQL 中间件项目，提供了一个
 }
 ```
 #### Streamable HTTP
-客户端访问链接：http://localhost:9009/mcp
+
 ```json
 {
   "mcpServers": {
     "mysql-mcp-xu": {
-      "command": "uvx",
-      "args": [
-        "mysql-mcp-xu",
-        "sh"
-      ],
-      "env": {
-        "MYSQL_DATABASE": "",
-        "MYSQL_HOST": "",
-        "MYSQL_PASSWORD": "",
-        "MYSQL_PORT": "3306",
-        "MYSQL_ROLE": "r",
-        "MYSQL_USER": ""
-      }
+      "name": "mysql-mcp-xu",
+      "type": "streamableHttp",
+      "description": "",
+      "isActive": true,
+      "baseUrl": "http://localhost:9009/mcp"
     }
   }
 }
 ```
 #### SSE
-客户端访问链接：http://localhost:9009/sse
+
 ```json
 {
   "mcpServers": {
     "mysql-mcp-xu": {
-      "command": "uvx",
-      "args": [
-        "mysql-mcp-xu",
-        "sse"
-      ],
-      "env": {
-        "MYSQL_DATABASE": "",
-        "MYSQL_HOST": "",
-        "MYSQL_PASSWORD": "",
-        "MYSQL_PORT": "3306",
-        "MYSQL_ROLE": "r",
-        "MYSQL_USER": ""
-      }
+      "name": "mysql-mcp-xu",
+      "description": "",
+      "isActive": true,
+      "baseUrl": "http://localhost:9009/sse"
     }
   }
 }
 ```
-- **参数说明**：
-  - `MYSQL_DATABASE`: 数据库名称。
-  - `MYSQL_HOST`: 数据库主机地址。
-  - `MYSQL_PASSWORD`: 数据库密码。
-  - `MYSQL_PORT`: 数据库端口，默认为 `3306`。
-  - `MYSQL_ROLE`: 用户角色，默认为 `r`（读权限）。可选角色有 `r`, `w`, `a`。
-  - `MYSQL_USER`: 数据库用户名。
+### 使用 uv 部署
+```json
+{
+  "mcpServers": {
+    "mysql-mcp-xu": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:/mysql-mcp-xu/src/mysql_mcp_xu",
+        "run",
+        "-m",
+        "mcp_server"
+      ]
+    }
+  }
+}
+```
+#### Streamable HTTP
+```json
+{
+  "mcpServers": {
+    "mysql-mcp-xu": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:/mysql-mcp-xu/src/mysql_mcp_xu",
+        "run",
+        "-m",
+        "mcp_server",
+        "sh"
+      ]
+    }
+  }
+}
+```
+
+#### sse
+```json
+{
+  "mcpServers": {
+    "mysql-mcp-xu": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:/mysql-mcp-xu/src/mysql_mcp_xu",
+        "run",
+        "-m",
+        "mcp_server",
+        "sse"
+      ]
+    }
+  }
+}
+```
