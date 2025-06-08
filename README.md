@@ -1,0 +1,122 @@
+# MySQL MCP Xu
+
+## 项目简介
+MySQL MCP Xu 是一个基于 FastMCP 的 MySQL 中间件项目，提供了一个安全、高效的接口来执行 SQL 操作。该项目支持多种权限控制（读、写、管理员），并通过工具函数实现了表结构查询、索引信息获取、健康状态监控等功能。
+
+## 目录结构
+```
+.
+├── src
+│   └── mysql_mcp_xu
+│       ├── __init__.py
+│       ├── config.py
+│       └── mcp_server.py
+├── README.md
+└── pyproject.toml
+```
+
+## 快速开始
+1. 安装：`pip install mysql-mcp-xu`
+2. 使用 MCP 客户端连接服务并执行 SQL 操作。
+
+## 功能特性
+- **SQL 执行**：支持执行多条 SQL 语句，并返回结果。
+- **权限控制**：根据角色（读、写、管理员）限制 SQL 操作。
+- **表结构查询**：获取指定表的字段名、字段注释等信息。
+- **索引信息获取**：获取指定表的索引名、索引字段、索引类型等信息。
+- **健康状态监控**：获取 MySQL 的健康状态，包括连接数、查询次数、缓冲池使用情况等。
+
+
+## 权限控制
+权限控制通过 `PERMISSIONS` 字典实现，支持以下角色：
+- `r`：只读权限，允许执行 `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`, `USE` 操作。
+- `w`：读写权限，允许执行 `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`, `INSERT`, `UPDATE`, `DELETE`, `USE` 操作。
+- `a`：管理员权限，允许执行所有操作，包括 `CREATE`, `ALTER`, `DROP`, `TRUNCATE` 等。
+
+## 工具函数
+- `execute_sql`: 执行 SQL 语句并返回结果。
+- `get_table_structure`: 获取指定表的字段信息。
+- `get_table_indexes`: 获取指定表的索引信息。
+- `search_table_by_chinese`: 根据表中文名或表描述搜索数据库中对应的表名。
+- `get_mysql_health`: 获取 MySQL 的健康状态。
+
+## 部署方式
+
+### 使用 uvx 部署
+
+在 MCP 配置文件中添加如下配置，以使用 `uvx` 部署 MySQL MCP Xu 服务：
+#### STDIO
+
+```json
+{
+  "mcpServers": {
+    "mysql-mcp-xu": {
+      "command": "uvx",
+      "args": [
+        "mysql-mcp-xu"
+      ],
+      "env": {
+        "MYSQL_DATABASE": "",
+        "MYSQL_HOST": "",
+        "MYSQL_PASSWORD": "",
+        "MYSQL_PORT": "3306",
+        "MYSQL_ROLE": "r",
+        "MYSQL_USER": ""
+      }
+    }
+  }
+}
+```
+#### Streamable HTTP
+客户端访问链接：http://localhost:9009/mcp
+```json
+{
+  "mcpServers": {
+    "mysql-mcp-xu": {
+      "command": "uvx",
+      "args": [
+        "mysql-mcp-xu",
+        "sh"
+      ],
+      "env": {
+        "MYSQL_DATABASE": "",
+        "MYSQL_HOST": "",
+        "MYSQL_PASSWORD": "",
+        "MYSQL_PORT": "3306",
+        "MYSQL_ROLE": "r",
+        "MYSQL_USER": ""
+      }
+    }
+  }
+}
+```
+#### SSE
+客户端访问链接：http://localhost:9009/sse
+```json
+{
+  "mcpServers": {
+    "mysql-mcp-xu": {
+      "command": "uvx",
+      "args": [
+        "mysql-mcp-xu",
+        "sse"
+      ],
+      "env": {
+        "MYSQL_DATABASE": "",
+        "MYSQL_HOST": "",
+        "MYSQL_PASSWORD": "",
+        "MYSQL_PORT": "3306",
+        "MYSQL_ROLE": "r",
+        "MYSQL_USER": ""
+      }
+    }
+  }
+}
+```
+- **参数说明**：
+  - `MYSQL_DATABASE`: 数据库名称。
+  - `MYSQL_HOST`: 数据库主机地址。
+  - `MYSQL_PASSWORD`: 数据库密码。
+  - `MYSQL_PORT`: 数据库端口，默认为 `3306`。
+  - `MYSQL_ROLE`: 用户角色，默认为 `r`（读权限）。可选角色有 `r`, `w`, `a`。
+  - `MYSQL_USER`: 数据库用户名。
