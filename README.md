@@ -1,3 +1,5 @@
+[![PyPI Version](https://img.shields.io/pypi/v/mysql-mcp-xu)](https://pypi.org/project/mysql-mcp-xu)
+[![PyPI Downloads](https://static.pepy.tech/badge/mysql-mcp-xu)](https://pepy.tech/projects/mysql-mcp-xu)
 # MySQL MCP Xu
 
 ## 项目简介
