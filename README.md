@@ -26,8 +26,7 @@ MYSQL_PORT=3306
 MYSQL_USER=your_username
 MYSQL_PASSWORD=your_password
 MYSQL_DATABASE=your_database
-# 可选值: r, w, a
-MYSQL_ROLE=r
+MYSQL_ROLE=r # 可选值: r, w, a
 ```
 3. 启动命令：
    - STDIO：uv run -m mysql_mcp_xu.mcp_server 
@@ -72,12 +71,12 @@ MYSQL_ROLE=r
         "mysql-mcp-xu"
       ],
       "env": {
-        "MYSQL_DATABASE": "",
-        "MYSQL_HOST": "",
-        "MYSQL_PASSWORD": "",
-        "MYSQL_PORT": "3306",
-        "MYSQL_ROLE": "r",
-        "MYSQL_USER": ""
+         "MYSQL_HOST": "", 
+         "MYSQL_PORT": "3306",
+         "MYSQL_USER": "",
+         "MYSQL_PASSWORD": "",
+         "MYSQL_DATABASE": "",
+         "MYSQL_ROLE": "r",
       }
     }
   }
