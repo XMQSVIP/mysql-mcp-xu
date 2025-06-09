@@ -3,79 +3,101 @@ mysql mcp server
 xmq
 """
 import asyncio
+
+import aiomysql
 from fastmcp import FastMCP
-from mysql.connector import connect, Error
 from mysql_mcp_xu.config import load_config, PERMISSIONS
+from mysql_mcp_xu.db_conn import MySQLConnectionPool, logger
+
 
 config = load_config()
 role = config.pop("role", "r")
 mymcp = FastMCP("MySQL MCP Xu")
 
-
-def get_connection():
-    """
-    连接数据库
-    """
-    return connect(**config)
+db_pool = MySQLConnectionPool(config)
 
 
-def _execute_sql(sqls: str) -> str:
-    results = []
-    try:
-        conn = get_connection()
-        # cursor = conn.cursor(dictionary=True)
-        cursor = conn.cursor()
-        # 处理多条SQL语句
-        sql_list = [sql.strip() for sql in sqls.strip().split(';') if sql.strip()]
-        for sql in sql_list:
-            first_word = sql.split(' ', 1)[0].upper()
-            if first_word not in PERMISSIONS[role]:
-                results.append(f"当前角色：{role} 权限不足,无权执行操作:{sql}")
+async def init_db():
+    await db_pool.init_pool()
+
+
+async def _execute_single_sql(sql: str) -> str:
+    """执行sql"""
+
+    first_word = sql.split(' ', 1)[0].upper()
+    if first_word not in PERMISSIONS[role]:
+        return f"当前角色：{role} 权限不足,无权执行操作: {first_word}"
+
+    if first_word == 'SELECT' and 'LIMIT' not in sql.upper():
+        sql += " LIMIT 1000"
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            async with await db_pool.get_connection() as conn:
+                async with conn.cursor() as cursor:
+                    await cursor.execute(sql)
+
+                    if cursor.description:
+                        columns = [desc[0] for desc in cursor.description]
+                        rows = await cursor.fetchall()
+
+                        if not rows:
+                            return f"查询完成，结果为空\n列名: {','.join(columns)}"
+
+                        formatted_rows = []
+                        for row in rows:
+                            if hasattr(row, 'values'):
+                                formatted_row = ["NULL" if value is None else str(value) for value in row.values()]
+                            else:
+                                formatted_row = ["NULL" if value is None else str(value) for value in row]
+                            formatted_rows.append(",".join(formatted_row))
+
+                        return "\n".join([",".join(columns)] + formatted_rows)
+                    else:
+                        return f"执行成功。影响行数: {cursor.rowcount}"
+
+        except (aiomysql.MySQLError, OSError, asyncio.TimeoutError) as e:
+            logger.warning(f"SQL执行失败{attempt + 1}，重试中...: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(1)
                 continue
-            if first_word == 'SELECT' and 'LIMIT' not in sql.upper():
-                sql += " LIMIT 1000"
-            try:
-                cursor.execute(sql)
-
-                if cursor.description:
-                    columns = [desc[0] for desc in cursor.description]
-                    rows = cursor.fetchall()
-
-                    # 将每一行的数据转换为字符串，特殊处理None值
-                    formatted_rows = []
-                    for row in rows:
-                        formatted_row = ["NULL" if value is None else str(value) for value in row]
-                        formatted_rows.append(",".join(formatted_row))
-
-                    # 将列名和数据合并为CSV格式
-                    results.append("\n".join([",".join(columns)] + formatted_rows))
-                else:
-                    conn.commit()
-                    results.append(f"执行成功。影响行数: {cursor.rowcount}")
-            except Error as e:
-                results.append(f"sql执行失败: {str(e)}")
-
-        return "\n---\n".join(results) if results else "执行成功"
-
-    except Error as e:
-        return f"sql执行失败: {str(e)}"
-    finally:
-        cursor.close()
-        conn.close()
+            else:
+                raise e
+        except Exception as e:
+            raise e
 
 
 @mymcp.tool
 async def execute_sql(sqls: str) -> str:
     """
-    在MySql数据库上执行";"分割的SQL语句并返回结果(Execute the SQL
-     statements separated by ";" on the MySql database and return the results)
-    :param:
-        sqls (str): SQL语句，多个SQL语句以";"分隔
-    :return::
-        结果以CSV格式返回，包含列名和数据
+    执行SQL语句(Execute SQL statements)
+    :param sqls: SQL语句，多条语句用分号分隔
+    :return: 执行结果的字符串表示
     """
+    results = []
 
-    return _execute_sql(sqls)
+    try:
+        sql_list = [sql.strip() for sql in sqls.strip().split(';') if sql.strip()]
+
+        if not sql_list:
+            return "没有有效的SQL语句"
+
+        for sql in sql_list:
+            try:
+                result = await _execute_single_sql(sql)
+                results.append(result)
+            except Exception as e:
+                error_msg = f"SQL执行失败: {sql[:50]}... - {str(e)}"
+                logger.error(error_msg)
+                results.append(error_msg)
+
+        return "\n---\n".join(results) if results else "执行成功"
+
+    except Exception as e:
+        logger.error(f"SQL执行失败: {e}")
+        return f"执行失败: {str(e)}"
+
 
 @mymcp.tool
 async def get_table_structure(table_names: str) -> str:
@@ -97,7 +119,7 @@ async def get_table_structure(table_names: str) -> str:
         sql = "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT "
         sql += f"FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{config['database']}' "
         sql += f"AND TABLE_NAME IN ('{table_condition}') ORDER BY TABLE_NAME, ORDINAL_POSITION;"
-        return _execute_sql(sql)
+        return await _execute_single_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
 
@@ -122,7 +144,7 @@ async def get_table_indexes(table_names: str) -> str:
         sql = "SELECT TABLE_NAME, INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX, NON_UNIQUE, INDEX_TYPE "
         sql += f"FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '{config['database']}' "
         sql += f"AND TABLE_NAME IN ('{table_condition}') ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;"
-        return _execute_sql(sql)
+        return await _execute_single_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
 
@@ -144,9 +166,38 @@ async def search_table_by_chinese(table_name: str) -> str:
         sql = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COMMENT "
         sql += f"FROM information_schema.TABLES "
         sql += f"WHERE TABLE_SCHEMA = '{config['database']}' AND TABLE_COMMENT LIKE '%{table_name}%';"
-        return _execute_sql(sql)
+        return await _execute_single_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
+
+
+@mymcp.tool
+async def get_database_info() -> str:
+    """
+    获取数据库基本信息(Get basic database information)
+    """
+    try:
+        info_sql = """
+        SELECT 
+            'Database' as info_type, 
+            DATABASE() as value
+        UNION ALL
+        SELECT 
+            'Version' as info_type, 
+            VERSION() as value
+        UNION ALL
+        SELECT 
+            'Current User' as info_type, 
+            USER() as value
+        UNION ALL
+        SELECT 
+            'Connection ID' as info_type, 
+            CONNECTION_ID() as value
+        """
+
+        return await _execute_single_sql(info_sql)
+    except Exception as e:
+        return f"获取数据库信息失败: {str(e)}"
 
 
 @mymcp.tool
@@ -154,48 +205,222 @@ async def get_mysql_health() -> str:
     """
     获取当前mysql的健康状态(Obtain the current health status of MySQL)
     """
-
     try:
-        # 查询系统状态变量
-        sql = """
+        status_sql = """
         SHOW GLOBAL STATUS WHERE Variable_name IN (
-        'Uptime',
-        'Threads_connected',
-        'Threads_running',
-        'Queries',
-        'Open_files',
-        'Open_tables',
-        'Innodb_buffer_pool_read_requests',
-        'Innodb_buffer_pool_reads',
-        'Key_read_requests',
-        'Key_reads',
-        'Created_tmp_disk_tables',
-        'Handler_read_rnd_next',
-        'Aborted_clients',
-        'Aborted_connects'
-        );"""
-        sql += """SHOW GLOBAL VARIABLES WHERE Variable_name IN (
+            'Uptime',
+            'Threads_connected',
+            'Threads_running',
+            'Queries',
+            'Open_files',
+            'Open_tables',
+            'Innodb_buffer_pool_read_requests',
+            'Innodb_buffer_pool_reads',
+            'Key_read_requests',
+            'Key_reads',
+            'Created_tmp_disk_tables',
+            'Handler_read_rnd_next',
+            'Aborted_clients',
+            'Aborted_connects'
+        )
+        """
+
+        variables_sql = """
+        SHOW GLOBAL VARIABLES WHERE Variable_name IN (
             'innodb_buffer_pool_size',
             'max_connections',
             'table_open_cache',
             'query_cache_size',
-            'key_buffer_size'
-        );"""
-        return _execute_sql(sql)
+            'key_buffer_size',
+            'version'
+        )
+        """
+
+        status_result = await _execute_single_sql(status_sql)
+        variables_result = await _execute_single_sql(variables_sql)
+
+        pool_status = f"连接池状态: {'正常' if db_pool.pool and not db_pool.pool.closed else '异常'}"
+        if db_pool.pool and not db_pool.pool.closed:
+            pool_status += f" (大小: {db_pool.pool.size}, 空闲: {db_pool.pool.freesize})"
+
+        return f"=== MySQL健康状态 ===\n{pool_status}\n\n=== 系统状态 ===\n{status_result}\n\n=== 系统变量 ===\n{variables_result}"
+
     except Exception as e:
-        return f"数据库查询失败: {str(e)}"
+        logger.error(f"Health check failed: {e}")
+        return f"健康检查失败: {str(e)}"
+
+
+@mymcp.tool
+async def get_database_schema() -> str:
+    """
+    获取数据库架构信息(Get database schema information)
+    """
+    try:
+        # 获取所有表
+        tables_sql = "SHOW TABLES"
+        tables_result = await _execute_single_sql(tables_sql)
+
+        # 获取所有视图
+        views_sql = "SHOW FULL TABLES WHERE Table_type = 'VIEW'"
+        views_result = await _execute_single_sql(views_sql)
+
+        # 获取数据库大小
+        size_sql = """
+        SELECT 
+            table_schema as '数据库',
+            ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as '大小(MB)',
+            COUNT(*) as '表数量'
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE()
+        GROUP BY table_schema
+        """
+        size_result = await _execute_single_sql(size_sql)
+
+        return f"=== 数据库概览 ===\n{size_result}\n\n=== 表列表 ===\n{tables_result}\n\n=== 视图列表 ===\n{views_result}"
+    except Exception as e:
+        return f"获取数据库架构失败: {str(e)}"
+
+
+@mymcp.tool
+async def analyze_table_stats(table_name: str) -> str:
+    """
+    分析表统计信息和列统计信息(Analyze table statistics and column statistics)
+    :param table_name: 表名
+    :return: 表统计信息
+    """
+    try:
+        # 获取表的基本统计信息
+        stats_sql = f"""
+        SELECT 
+            TABLE_NAME as '表名',
+            TABLE_ROWS as '行数',
+            ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as '大小(MB)',
+            ROUND(DATA_LENGTH / 1024 / 1024, 2) as '数据大小(MB)',
+            ROUND(INDEX_LENGTH / 1024 / 1024, 2) as '索引大小(MB)',
+            ENGINE as '存储引擎',
+            TABLE_COLLATION as '字符集'
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() AND table_name = '{table_name}'
+        """
+
+        # 获取列统计信息
+        columns_sql = f"""
+        SELECT 
+            COLUMN_NAME AS '列名',
+            COLUMN_COMMENT AS '列备注',
+            DATA_TYPE AS '数据类型',
+            IS_NULLABLE AS '允许NULL',
+            COLUMN_DEFAULT AS '默认值',
+            COLUMN_KEY AS '键类型',     
+            EXTRA AS '额外信息',
+        FROM 
+            information_schema.columns 
+        WHERE 
+            table_schema = DATABASE() 
+            AND table_name = '{table_name}'
+        ORDER BY 
+            ORDINAL_POSITION;
+        """
+
+        stats_result = await _execute_single_sql(stats_sql)
+        columns_result = await _execute_single_sql(columns_sql)
+
+        return f"=== 表统计信息 ===\n{stats_result}\n\n=== 列信息 ===\n{columns_result}"
+    except Exception as e:
+        return f"分析表统计信息失败: {str(e)}"
+
+
+@mymcp.tool
+async def get_process_list() -> str:
+    """
+    获取当前进程列表(Get current process list)
+    """
+    try:
+        process_sql = """
+        SELECT 
+            ID as '进程ID',
+            USER as '用户',
+            HOST as '主机',
+            DB as '数据库',
+            COMMAND as '命令',
+            TIME as '时间(秒)',
+            STATE as '状态',
+            LEFT(INFO, 100) as 'SQL语句'
+        FROM information_schema.processlist 
+        WHERE COMMAND != 'Sleep'
+        ORDER BY TIME DESC
+        """
+
+        return await _execute_single_sql(process_sql)
+    except Exception as e:
+        return f"获取进程列表失败: {str(e)}"
+
+
+@mymcp.tool
+async def check_table_constraints(table_name: str) -> str:
+    """
+    检查表约束信息(Check table constraints)
+    :param table_name: 表名
+    :return: 约束信息
+    """
+    try:
+        # 获取外键约束
+        fk_sql = f"""
+        SELECT 
+            CONSTRAINT_NAME as '约束名',
+            COLUMN_NAME as '列名',
+            REFERENCED_TABLE_NAME as '引用表',
+            REFERENCED_COLUMN_NAME as '引用列',
+            UPDATE_RULE as '更新规则',
+            DELETE_RULE as '删除规则'
+        FROM information_schema.key_column_usage 
+        WHERE table_schema = DATABASE() 
+        AND table_name = '{table_name}' 
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+        """
+
+        # 获取检查约束（MySQL 8.0+）
+        check_sql = f"""
+        SELECT 
+            CONSTRAINT_NAME as '约束名',
+            CHECK_CLAUSE as '检查条件'
+        FROM information_schema.check_constraints 
+        WHERE constraint_schema = DATABASE() 
+        AND table_name = '{table_name}'
+        """
+
+        fk_result = await _execute_single_sql(fk_sql)
+
+        try:
+            check_result = await _execute_single_sql(check_sql)
+            return f"=== 外键约束 ===\n{fk_result}\n\n=== 检查约束 ===\n{check_result}"
+        except:
+            # 如果不支持检查约束，只返回外键约束
+            return f"=== 外键约束 ===\n{fk_result}"
+
+    except Exception as e:
+        return f"获取表约束信息失败: {str(e)}"
 
 
 async def mcp_run(mode='stdio'):
-    import sys
-    if len(sys.argv) > 1:
-        mode = sys.argv[1]
-    if mode == 'sh':
-        await mymcp.run_async(transport="streamable-http", host="0.0.0.0", port=9009)
-    elif mode == 'sse':
-        await mymcp.run_async(transport="sse", host="0.0.0.0", port=9009)
-    else:
-        await mymcp.run_async(transport="stdio")
+    try:
+        await init_db()
+        import sys
+        if len(sys.argv) > 1:
+            mode = sys.argv[1]
+
+        if mode == 'sh':
+            await mymcp.run_async(transport="streamable-http", host="0.0.0.0", port=9009)
+        elif mode == 'sse':
+            await mymcp.run_async(transport="sse", host="0.0.0.0", port=9009)
+        else:
+            await mymcp.run_async(transport="stdio")
+
+    except Exception as e:
+        logger.error(f"MCP server启动失败: {e}")
+        raise
+    finally:
+        await db_pool.close()
 
 
 if __name__ == "__main__":

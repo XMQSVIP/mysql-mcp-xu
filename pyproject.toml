@@ -1,6 +1,6 @@
 [project]
 name = "mysql-mcp-xu"
-version = "0.1.1"
+version = "0.1.4"
 description = "使用FastMCP构建MySql Mcp Server，支持Streamable HTTP, STDIO, SSE"
 readme = "README.md"
 keywords = ["mysql", "mcp", "mcp-server"]
@@ -10,8 +10,8 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "aiomysql>=0.2.0",
     "fastmcp>=2.7.1",
-    "mysql-connector-python>=9.3.0",
     "python-dotenv>=1.1.0",
 ]
 

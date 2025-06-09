@@ -27,6 +27,7 @@ MYSQL_USER=your_username
 MYSQL_PASSWORD=your_password
 MYSQL_DATABASE=your_database
 MYSQL_ROLE=r # 可选值: r, w, a
+MYSQL_MAXSIZE=2 # 可选值 连接池最大值
 ```
 3. 启动命令：
    - STDIO：uv run -m mysql_mcp_xu.mcp_server 
@@ -54,6 +55,11 @@ MYSQL_ROLE=r # 可选值: r, w, a
 - `get_table_indexes`: 获取指定表的索引信息。
 - `search_table_by_chinese`: 根据表中文名或表描述搜索数据库中对应的表名。
 - `get_mysql_health`: 获取 MySQL 的健康状态。
+- `get_database_info`: 获取数据库基本信息
+- `get_database_schema`: 获取数据库架构信息
+- `analyze_table_stats`: 分析表统计信息和列统计信息
+- `get_process_list`: 获取当前进程列表
+- `check_table_constraints`: 检查表约束信息
 
 ## 部署方式
 
@@ -164,4 +170,3 @@ MYSQL_ROLE=r # 可选值: r, w, a
     }
   }
 }
-```
