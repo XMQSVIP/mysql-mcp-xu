@@ -49,7 +49,7 @@ MYSQL_ROLE=r # 可选值: r, w, a
 - `a`：管理员权限，允许执行所有操作，包括 `CREATE`, `ALTER`, `DROP`, `TRUNCATE` 等。
 
 ## 工具函数
-- `execute_sql`: 执行 SQL 语句并返回结果。
+- `execute_sql`: 执行 SQL 语句并返回结果,SELECT语句没有LIMIT时，自动在sql后加LIMIT 1000。
 - `get_table_structure`: 获取指定表的字段信息。
 - `get_table_indexes`: 获取指定表的索引信息。
 - `search_table_by_chinese`: 根据表中文名或表描述搜索数据库中对应的表名。

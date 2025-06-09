@@ -44,6 +44,8 @@ async def execute_sql(sqls: str) -> str:
             if first_word not in PERMISSIONS[role]:
                 results.append(f"当前角色：{role} 权限不足,无权执行操作:{sql}")
                 continue
+            if first_word == 'SELECT' and 'LIMIT' not in sql.upper():
+                sql += " LIMIT 1000"
             try:
                 cursor.execute(sql)
 
