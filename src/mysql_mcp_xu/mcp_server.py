@@ -2,7 +2,7 @@
 mysql mcp server
 xmq
 """
-
+import asyncio
 from fastmcp import FastMCP
 from mysql.connector import connect, Error
 from mysql_mcp_xu.config import load_config, PERMISSIONS
@@ -130,8 +130,8 @@ def get_table_indexes(table_names: str) -> str:
 @mymcp.tool
 def search_table_by_chinese(table_name: str) -> str:
     """
-    根据表的中文名或表的描述搜索数据库中对应的表名(Search for the corresponding table name in
-    the database based on the Chinese name of the table or the description of the table)
+    根据表的中文名或表的描述搜索数据库中对应的表名(Search for the corresponding table name
+    in the database based on the Chinese name of the table or the description of the table)
     :param:
         table_name (str): 表中文名或表描述
     :return::
@@ -191,11 +191,11 @@ def mcp_run(mode='stdio'):
     if len(sys.argv) > 1:
         mode = sys.argv[1]
     if mode == 'sh':
-        mymcp.run_async(transport="streamable-http", host="0.0.0.0", port=9009)
+        mymcp.run(transport="streamable-http", host="0.0.0.0", port=9009)
     elif mode == 'sse':
-        mymcp.run_async(transport="sse", host="0.0.0.0", port=9009)
+        mymcp.run(transport="sse", host="0.0.0.0", port=9009)
     else:
-        mymcp.run_async(transport="stdio")
+        mymcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

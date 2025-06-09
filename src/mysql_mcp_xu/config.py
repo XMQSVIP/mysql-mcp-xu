@@ -17,8 +17,8 @@ def load_config() -> Dict[str, str]:
 
 # 权限控制
 PERMISSIONS = {
-    "r": ["SELECT", "SHOW", "DESCRIBE", "EXPLAIN", "USE"],
-    "w": ["SELECT", "SHOW", "DESCRIBE", "EXPLAIN", "INSERT", "UPDATE", "DELETE", "USE"],
-    "a": ["SELECT", "SHOW", "DESCRIBE", "EXPLAIN", "INSERT", "UPDATE", "DELETE",
-          "CREATE", "ALTER", "DROP", "TRUNCATE", "USE"]
+    "r": ("SELECT", "SHOW", "DESCRIBE", "EXPLAIN", "USE"),
+    "w": ("SELECT", "SHOW", "DESCRIBE", "EXPLAIN", "INSERT", "UPDATE", "DELETE", "USE"),
+    "a": ("SELECT", "SHOW", "DESCRIBE", "EXPLAIN", "INSERT", "UPDATE", "DELETE", "USE",
+          "CREATE", "ALTER", "DROP", "TRUNCATE")
 }
