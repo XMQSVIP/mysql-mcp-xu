@@ -65,7 +65,7 @@ def _execute_sql(sqls: str) -> str:
 
 
 @mymcp.tool
-def execute_sql(sqls: str) -> str:
+async def execute_sql(sqls: str) -> str:
     """
     在MySql数据库上执行";"分割的SQL语句并返回结果(Execute the SQL
      statements separated by ";" on the MySql database and return the results)
@@ -78,7 +78,7 @@ def execute_sql(sqls: str) -> str:
     return _execute_sql(sqls)
 
 @mymcp.tool
-def get_table_structure(table_names: str) -> str:
+async def get_table_structure(table_names: str) -> str:
     """
     根据表名搜索数据库中对应的表字段(Search for the corresponding table fields in the database based on the table name)
     :param:
@@ -103,7 +103,7 @@ def get_table_structure(table_names: str) -> str:
 
 
 @mymcp.tool
-def get_table_indexes(table_names: str) -> str:
+async def get_table_indexes(table_names: str) -> str:
     """
     获取指定表的索引信息(Get the index information of the specified table.)
     :param
@@ -128,7 +128,7 @@ def get_table_indexes(table_names: str) -> str:
 
 
 @mymcp.tool
-def search_table_by_chinese(table_name: str) -> str:
+async def search_table_by_chinese(table_name: str) -> str:
     """
     根据表的中文名或表的描述搜索数据库中对应的表名(Search for the corresponding table name
     in the database based on the Chinese name of the table or the description of the table)
@@ -150,7 +150,7 @@ def search_table_by_chinese(table_name: str) -> str:
 
 
 @mymcp.tool
-def get_mysql_health() -> str:
+async def get_mysql_health() -> str:
     """
     获取当前mysql的健康状态(Obtain the current health status of MySQL)
     """
@@ -186,17 +186,17 @@ def get_mysql_health() -> str:
         return f"数据库查询失败: {str(e)}"
 
 
-def mcp_run(mode='stdio'):
+async def mcp_run(mode='stdio'):
     import sys
     if len(sys.argv) > 1:
         mode = sys.argv[1]
     if mode == 'sh':
-        mymcp.run(transport="streamable-http", host="0.0.0.0", port=9009)
+        await mymcp.run_async(transport="streamable-http", host="0.0.0.0", port=9009)
     elif mode == 'sse':
-        mymcp.run(transport="sse", host="0.0.0.0", port=9009)
+        await mymcp.run_async(transport="sse", host="0.0.0.0", port=9009)
     else:
-        mymcp.run(transport="stdio")
+        await mymcp.run_async(transport="stdio")
 
 
 if __name__ == "__main__":
-    mcp_run()
+    asyncio.run(mcp_run())
