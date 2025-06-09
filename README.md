@@ -76,7 +76,7 @@ MYSQL_ROLE=r # 可选值: r, w, a
          "MYSQL_USER": "",
          "MYSQL_PASSWORD": "",
          "MYSQL_DATABASE": "",
-         "MYSQL_ROLE": "r",
+         "MYSQL_ROLE": "r"
       }
     }
   }
@@ -92,7 +92,7 @@ MYSQL_ROLE=r # 可选值: r, w, a
       "type": "streamableHttp",
       "description": "",
       "isActive": true,
-      "baseUrl": "http://localhost:9009/mcp"
+      "url": "http://localhost:9009/mcp"
     }
   }
 }
@@ -106,7 +106,7 @@ MYSQL_ROLE=r # 可选值: r, w, a
       "name": "mysql-mcp-xu",
       "description": "",
       "isActive": true,
-      "baseUrl": "http://localhost:9009/sse"
+      "url": "http://localhost:9009/sse"
     }
   }
 }
