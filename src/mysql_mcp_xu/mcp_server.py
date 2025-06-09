@@ -2,16 +2,14 @@
 mysql mcp server
 xmq
 """
-import asyncio
 
-from fastmcp import FastMCP, Client
+from fastmcp import FastMCP
 from mysql.connector import connect, Error
 from mysql_mcp_xu.config import load_config, PERMISSIONS
 
 config = load_config()
 role = config.pop("role", "r")
 mymcp = FastMCP("MySQL MCP Xu")
-client = Client(mymcp, timeout=15)
 
 
 def get_connection():
@@ -21,17 +19,7 @@ def get_connection():
     return connect(**config)
 
 
-@mymcp.tool
-async def execute_sql(sqls: str) -> str:
-    """
-    在MySql数据库上执行";"分割的SQL语句并返回结果(Execute the SQL
-     statements separated by ";" on the MySql database and return the results)
-    :param:
-        sqls (str): SQL语句，多个SQL语句以";"分隔
-    :return::
-        结果以CSV格式返回，包含列名和数据
-    """
-
+def _execute_sql(sqls: str) -> str:
     results = []
     try:
         conn = get_connection()
@@ -66,10 +54,9 @@ async def execute_sql(sqls: str) -> str:
                     results.append(f"执行成功。影响行数: {cursor.rowcount}")
             except Error as e:
                 results.append(f"sql执行失败: {str(e)}")
-        if results:
-            return "\n---\n".join(results)
-        else:
-            return "执行成功"
+
+        return "\n---\n".join(results) if results else "执行成功"
+
     except Error as e:
         return f"sql执行失败: {str(e)}"
     finally:
@@ -78,7 +65,20 @@ async def execute_sql(sqls: str) -> str:
 
 
 @mymcp.tool
-async def get_table_structure(table_names: str) -> str:
+def execute_sql(sqls: str) -> str:
+    """
+    在MySql数据库上执行";"分割的SQL语句并返回结果(Execute the SQL
+     statements separated by ";" on the MySql database and return the results)
+    :param:
+        sqls (str): SQL语句，多个SQL语句以";"分隔
+    :return::
+        结果以CSV格式返回，包含列名和数据
+    """
+
+    return _execute_sql(sqls)
+
+@mymcp.tool
+def get_table_structure(table_names: str) -> str:
     """
     根据表名搜索数据库中对应的表字段(Search for the corresponding table fields in the database based on the table name)
     :param:
@@ -97,15 +97,13 @@ async def get_table_structure(table_names: str) -> str:
         sql = "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT "
         sql += f"FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{config['database']}' "
         sql += f"AND TABLE_NAME IN ('{table_condition}') ORDER BY TABLE_NAME, ORDINAL_POSITION;"
-        async with client:
-            result = await client.call_tool('execute_sql', {"sqls": sql})
-            return result
+        return _execute_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
 
 
 @mymcp.tool
-async def get_table_indexes(table_names: str) -> str:
+def get_table_indexes(table_names: str) -> str:
     """
     获取指定表的索引信息(Get the index information of the specified table.)
     :param
@@ -124,17 +122,16 @@ async def get_table_indexes(table_names: str) -> str:
         sql = "SELECT TABLE_NAME, INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX, NON_UNIQUE, INDEX_TYPE "
         sql += f"FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '{config['database']}' "
         sql += f"AND TABLE_NAME IN ('{table_condition}') ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;"
-        async with client:
-            result = await client.call_tool('execute_sql', {"sqls": sql})
-            return result
+        return _execute_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
 
 
 @mymcp.tool
-async def search_table_by_chinese(table_name: str) -> str:
+def search_table_by_chinese(table_name: str) -> str:
     """
-    根据表中文名或表描述搜索数据库中对应的表名
+    根据表的中文名或表的描述搜索数据库中对应的表名(Search for the corresponding table name in
+    the database based on the Chinese name of the table or the description of the table)
     :param:
         table_name (str): 表中文名或表描述
     :return::
@@ -147,15 +144,13 @@ async def search_table_by_chinese(table_name: str) -> str:
         sql = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COMMENT "
         sql += f"FROM information_schema.TABLES "
         sql += f"WHERE TABLE_SCHEMA = '{config['database']}' AND TABLE_COMMENT LIKE '%{table_name}%';"
-        async with client:
-            result = await client.call_tool('execute_sql', {"sqls": sql})
-            return result
+        return _execute_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
 
 
 @mymcp.tool
-async def get_mysql_health() -> str:
+def get_mysql_health() -> str:
     """
     获取当前mysql的健康状态(Obtain the current health status of MySQL)
     """
@@ -186,24 +181,22 @@ async def get_mysql_health() -> str:
             'query_cache_size',
             'key_buffer_size'
         );"""
-        async with client:
-            result = await client.call_tool('execute_sql', {"sqls": sql})
-            return result
+        return _execute_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"
 
 
-async def mcp_run(mode='stdio'):
+def mcp_run(mode='stdio'):
     import sys
     if len(sys.argv) > 1:
         mode = sys.argv[1]
     if mode == 'sh':
-        await mymcp.run_async(transport="streamable-http", host="0.0.0.0", port=9009)
+        mymcp.run_async(transport="streamable-http", host="0.0.0.0", port=9009)
     elif mode == 'sse':
-        await mymcp.run_async(transport="sse", host="0.0.0.0", port=9009)
+        mymcp.run_async(transport="sse", host="0.0.0.0", port=9009)
     else:
-        await mymcp.run_async(transport="stdio")
+        mymcp.run_async(transport="stdio")
 
 
 if __name__ == "__main__":
-    asyncio.run(mcp_run())
+    mcp_run()
