@@ -11,7 +11,7 @@ def load_config() -> Dict[str, str]:
         "user": os.getenv("MYSQL_USER", "root"),
         "password": os.getenv("MYSQL_PASSWORD", "password"),
         "db": os.getenv("MYSQL_DATABASE"),
-        "maxsize": os.getenv("MYSQL_MAXSIZE", 2),
+        "maxsize": int(os.getenv("MYSQL_MAXSIZE", 2)),
         "role": os.getenv("MYSQL_ROLE", "r")
     }
 

@@ -78,11 +78,12 @@ MYSQL_MAXSIZE=2 # 可选值 连接池最大值
       ],
       "env": {
          "MYSQL_HOST": "", 
-         "MYSQL_PORT": "3306",
+         "MYSQL_PORT": 3306,
          "MYSQL_USER": "",
          "MYSQL_PASSWORD": "",
          "MYSQL_DATABASE": "",
-         "MYSQL_ROLE": "r"
+         "MYSQL_ROLE": "r",
+         "MYSQL_MAXSIZE": 2
       }
     }
   }
