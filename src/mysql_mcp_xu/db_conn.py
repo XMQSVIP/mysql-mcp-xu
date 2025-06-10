@@ -16,7 +16,6 @@ class MySQLConnectionPool:
         self.config = config
         self.max_retries = 3
         self.retry_delay = 2
-        print(self.config)
 
     async def init_pool(self):
         """初始化连接池"""
@@ -27,6 +26,7 @@ class MySQLConnectionPool:
                     await self.pool.wait_closed()
 
                 self.pool = await aiomysql.create_pool(
+                    # autocommit=True,
                     pool_recycle=300,  # 每 5 分钟重新连接一次
                     minsize=1,
                     connect_timeout=15,

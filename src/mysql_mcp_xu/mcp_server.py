@@ -3,69 +3,105 @@ mysql mcp server
 xmq
 """
 import asyncio
+import re
 
 import aiomysql
 from fastmcp import FastMCP
 from mysql_mcp_xu.config import load_config, PERMISSIONS
 from mysql_mcp_xu.db_conn import MySQLConnectionPool, logger
 
-
 config = load_config()
 role = config.pop("role", "r")
 mymcp = FastMCP("MySQL MCP Xu")
-
 db_pool = MySQLConnectionPool(config)
+db = config.get('db')
 
 
 async def init_db():
     await db_pool.init_pool()
 
 
+def extract_table_names(sql):
+    # 匹配 FROM 和 JOIN 后面的表名
+    from_tables = re.findall(r'FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)', sql, re.IGNORECASE)
+    join_tables = re.findall(r'JOIN\s+([a-zA-Z_][a-zA-Z0-9_]*)', sql, re.IGNORECASE)
+
+    tables = set(from_tables + join_tables)
+    return tables
+
+
+def generate_column_and_comment_sql(table_name):
+    # 生成查询字段和备注的SQL语句
+    sql = f"""
+    SELECT 
+        COLUMN_NAME AS column_name,
+        COLUMN_COMMENT AS column_comment
+    FROM 
+        information_schema.COLUMNS
+    WHERE 
+        TABLE_SCHEMA = '{db}' AND 
+        TABLE_NAME = '{table_name}';
+    """
+    return sql
+
+
+# 获取pw_user表中罗丹的信息
 async def _execute_single_sql(sql: str) -> str:
     """执行sql"""
+    results = []
+    column_comment = {}
+    sql_list = [sql_.strip() for sql_ in sql.strip().split(';') if sql_.strip()]
+    for sql in sql_list:
+        first_word = sql.split(' ', 1)[0].upper()
+        has_select = True if 'SELECT' == first_word else False
+        if first_word not in PERMISSIONS[role]:
+            results.append(f"当前角色：{role} 权限不足,无权执行操作:{sql}")
+            continue
+        if first_word == 'SELECT' and 'LIMIT' not in sql.upper():
+            sql += " LIMIT 1000"
 
-    first_word = sql.split(' ', 1)[0].upper()
-    if first_word not in PERMISSIONS[role]:
-        return f"当前角色：{role} 权限不足,无权执行操作: {first_word}"
-
-    if first_word == 'SELECT' and 'LIMIT' not in sql.upper():
-        sql += " LIMIT 1000"
-
-    max_retries = 2
-    for attempt in range(max_retries):
         try:
             async with await db_pool.get_connection() as conn:
                 async with conn.cursor() as cursor:
+                    if has_select:
+                        table_names = extract_table_names(sql)
+                        for table_name in table_names:
+                            column_comment_sql = generate_column_and_comment_sql(table_name)
+                            await cursor.execute(column_comment_sql)
+                            res = await cursor.fetchall()
+                            if res:
+                                column_comment.update(dict(res))
                     await cursor.execute(sql)
-
                     if cursor.description:
-                        columns = [desc[0] for desc in cursor.description]
+                        columns = []
+                        for desc in cursor.description:
+                            column = desc[0]
+                            comment = column_comment.get(column)
+                            if comment:
+                                column = f"{column}[{comment}]"
+                            columns.append(column)
+
                         rows = await cursor.fetchall()
-
                         if not rows:
-                            return f"查询完成，结果为空\n列名: {','.join(columns)}"
-
+                            results.append("无数据")
+                            continue
                         formatted_rows = []
                         for row in rows:
-                            if hasattr(row, 'values'):
-                                formatted_row = ["NULL" if value is None else str(value) for value in row.values()]
-                            else:
-                                formatted_row = ["NULL" if value is None else str(value) for value in row]
+                            formatted_row = ["NULL" if value is None else str(value) for value in row]
                             formatted_rows.append(",".join(formatted_row))
 
-                        return "\n".join([",".join(columns)] + formatted_rows)
+                        results.append("\n".join([",".join(columns)] + formatted_rows))
                     else:
-                        return f"执行成功。影响行数: {cursor.rowcount}"
+                        await conn.commit()
+                        results.append(f"执行成功。影响行数: {cursor.rowcount}")
 
-        except (aiomysql.MySQLError, OSError, asyncio.TimeoutError) as e:
-            logger.warning(f"SQL执行失败{attempt + 1}，重试中...: {e}")
-            if attempt < max_retries - 1:
-                await asyncio.sleep(1)
-                continue
-            else:
-                raise e
         except Exception as e:
-            raise e
+            results.append(f"sql执行失败: {str(e)}")
+
+    if results:
+        return "\n---\n".join(results)
+    else:
+        return "执行成功"
 
 
 @mymcp.tool
@@ -92,6 +128,7 @@ async def execute_sql(sqls: str) -> str:
                 logger.error(error_msg)
                 results.append(error_msg)
 
+
         return "\n---\n".join(results) if results else "执行成功"
 
     except Exception as e:
@@ -117,11 +154,11 @@ async def get_table_structure(table_names: str) -> str:
         # 构建IN条件
         table_condition = "','".join(table_names)
         sql = "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT "
-        sql += f"FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{config['database']}' "
+        sql += f"FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{db}' "
         sql += f"AND TABLE_NAME IN ('{table_condition}') ORDER BY TABLE_NAME, ORDINAL_POSITION;"
         return await _execute_single_sql(sql)
     except Exception as e:
-        return f"数据库查询失败: {str(e)}"
+        return f"数据库查询失败: {str(e)}', {table_names}, {sql}"
 
 
 @mymcp.tool
@@ -142,7 +179,7 @@ async def get_table_indexes(table_names: str) -> str:
     table_condition = "','".join(table_names)
     try:
         sql = "SELECT TABLE_NAME, INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX, NON_UNIQUE, INDEX_TYPE "
-        sql += f"FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '{config['database']}' "
+        sql += f"FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '{db}' "
         sql += f"AND TABLE_NAME IN ('{table_condition}') ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;"
         return await _execute_single_sql(sql)
     except Exception as e:
@@ -165,7 +202,7 @@ async def search_table_by_chinese(table_name: str) -> str:
     try:
         sql = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COMMENT "
         sql += f"FROM information_schema.TABLES "
-        sql += f"WHERE TABLE_SCHEMA = '{config['database']}' AND TABLE_COMMENT LIKE '%{table_name}%';"
+        sql += f"WHERE TABLE_SCHEMA = '{db}' AND TABLE_COMMENT LIKE '%{table_name}%';"
         return await _execute_single_sql(sql)
     except Exception as e:
         return f"数据库查询失败: {str(e)}"

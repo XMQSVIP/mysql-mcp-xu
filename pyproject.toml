@@ -1,6 +1,6 @@
 [project]
 name = "mysql-mcp-xu"
-version = "0.1.4"
+version = "0.1.5"
 description = "使用FastMCP构建MySql Mcp Server，支持Streamable HTTP, STDIO, SSE"
 readme = "README.md"
 keywords = ["mysql", "mcp", "mcp-server"]
