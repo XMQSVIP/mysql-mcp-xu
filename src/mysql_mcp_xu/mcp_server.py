@@ -78,7 +78,7 @@ async def _execute_single_sql(sql: str) -> str:
                             column = desc[0]
                             comment = column_comment.get(column)
                             if comment:
-                                column = f"{column}[{comment}]"
+                                column = f"{column}:{comment}"
                             columns.append(column)
 
                         rows = await cursor.fetchall()
@@ -461,4 +461,4 @@ async def mcp_run(mode='stdio'):
 
 
 if __name__ == "__main__":
-    asyncio.run(mcp_run())
+    asyncio.run(mcp_run('sse'))
