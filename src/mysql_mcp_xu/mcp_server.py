@@ -187,10 +187,10 @@ async def get_table_indexes(table_names: str) -> str:
 
 
 @mymcp.tool
-async def search_table_by_chinese(table_name: str) -> str:
+async def search_table_by_name(table_name: str) -> str:
     """
-    根据表的中文名或表的描述搜索数据库中对应的表名(Search for the corresponding table name
-    in the database based on the Chinese name of the table or the description of the table)
+    根据表的名称或表的注释描述搜索数据库中对应的表名(Search for the corresponding table name in
+     the database based on the table's name or the description in its comment.)
     :param:
         table_name (str): 表中文名或表描述
     :return::
@@ -461,4 +461,4 @@ async def mcp_run(mode='stdio'):
 
 
 if __name__ == "__main__":
-    asyncio.run(mcp_run('sse'))
+    asyncio.run(mcp_run())
