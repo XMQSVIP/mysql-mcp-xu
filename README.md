@@ -53,10 +53,10 @@ MYSQL_MAXSIZE=2 # 可选值 连接池最大值
 - `execute_sql`: 执行 SQL 语句并返回结果,SELECT语句没有LIMIT时，自动在sql后加LIMIT 1000。
 - `get_table_structure`: 获取指定表的字段信息。
 - `get_table_indexes`: 获取指定表的索引信息。
-- `search_table_by_name`: 根据表中名或表注释搜索数据库中对应的表名。
+- `search_table_by_name`: 根据表名或表注释搜索数据库中对应的表名。
 - `get_mysql_health`: 获取 MySQL 的健康状态。
 - `get_database_info`: 获取数据库基本信息
-- `get_database_schema`: 获取数据库架构信息
+- `get_database_tables`: 获取数据库所有表和对应的表注释
 - `analyze_table_stats`: 分析表统计信息和列统计信息
 - `get_process_list`: 获取当前进程列表
 - `check_table_constraints`: 检查表约束信息

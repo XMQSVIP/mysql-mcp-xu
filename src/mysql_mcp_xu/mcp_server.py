@@ -189,10 +189,10 @@ async def get_table_indexes(table_names: str) -> str:
 @mymcp.tool
 async def search_table_by_name(table_name: str) -> str:
     """
-    根据表的名称或表的注释描述搜索数据库中对应的表名(Search for the corresponding table name in
+    根据表的名称或表的注释搜索数据库中是否有匹配的表名(Search for the corresponding table name in
      the database based on the table's name or the description in its comment.)
     :param:
-        table_name (str): 表中文名或表描述
+        table_name (str): 表的名称或表的注释
     :return::
         - 返回匹配的表名
         - 匹配结果按匹配度排序
@@ -288,34 +288,25 @@ async def get_mysql_health() -> str:
 
 
 @mymcp.tool
-async def get_database_schema() -> str:
+async def get_database_tables() -> str:
     """
-    获取数据库架构信息(Get database schema information)
+    获取数据库所有表和对应的表注释(Get all tables and their corresponding table comments in the database.)
     """
     try:
-        # 获取所有表
-        tables_sql = "SHOW TABLES"
-        tables_result = await _execute_single_sql(tables_sql)
+        # 获取所有表及其注释
+        comments_sql = f"""
+               SELECT 
+                   TABLE_NAME, 
+                   TABLE_COMMENT
+               FROM information_schema.TABLES
+               WHERE TABLE_SCHEMA = '{db}'
+               ORDER BY TABLE_NAME
+               """
+        comments_result = await _execute_single_sql(comments_sql)
 
-        # 获取所有视图
-        views_sql = "SHOW FULL TABLES WHERE Table_type = 'VIEW'"
-        views_result = await _execute_single_sql(views_sql)
-
-        # 获取数据库大小
-        size_sql = """
-        SELECT 
-            table_schema as '数据库',
-            ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as '大小(MB)',
-            COUNT(*) as '表数量'
-        FROM information_schema.tables 
-        WHERE table_schema = DATABASE()
-        GROUP BY table_schema
-        """
-        size_result = await _execute_single_sql(size_sql)
-
-        return f"=== 数据库概览 ===\n{size_result}\n\n=== 表列表 ===\n{tables_result}\n\n=== 视图列表 ===\n{views_result}"
+        return comments_result
     except Exception as e:
-        return f"获取数据库架构失败: {str(e)}"
+        return f"获取数据库所有表和对应的表注释失败: {str(e)}"
 
 
 @mymcp.tool
